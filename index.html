@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>ACCESSI</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #1c2c52;
+            color: #eaf1ff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* HEADER */
+        #header {
+            background: linear-gradient(90deg, #1e3a8a, #2563eb);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #2563eb;
+            height: 56px;
+        }
+        #header h1 { font-size: 18px; font-weight: 700; color: #f0f5ff; }
+        #header p { font-size: 11px; color: #93b4e0; margin-top: 2px; }
+
+        /* LAYOUT */
+        #main {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+
+        /* SIDEBAR */
+        #sidebar {
+            width: 300px;
+            min-width: 300px;
+            background: #16223f;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            border-right: 1px solid #2d4a8a;
+        }
+
+        #map { flex: 1; }
+
+        /* LABELS */
+        .label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #9db8e8;
+            margin-bottom: 5px;
+        }
+
+        /* INPUT */
+        #destination-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1c2c52;
+            border: 1px solid #2d4a8a;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #destination-input:focus { border-color: #3b82f6; }
+        #destination-input::placeholder { color: #7691c4; }
+
+        /* USER TYPE SELECTOR */
+        #user-type {
+            width: 100%;
+            padding: 8px 12px;
+            background: #1c2c52;
+            border: 1px solid #2d4a8a;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            outline: none;
+        }
+
+        /* BUTTONS */
+        .btn {
+            width: 100%;
+            padding: 11px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:active { transform: scale(0.98); }
+
+        #voice-btn { background: #3b82f6; }
+        #voice-btn.listening {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+
+        #ask-btn { background: #2563eb; }
+        #speak-btn {
+            background: #0ea5e9;
+            display: none;
+        }
+        #stop-btn {
+            background: #dc2626;
+            display: none;
+        }
+        .obstacle-btn { background: #1d4ed8; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* RESPONSE BOX */
+        #response-box {
+            background: #1c2c52;
+            border: 1px solid #2d4a8a;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.7;
+            color: #c7d6f2;
+            min-height: 130px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        /* STEP COUNTER */
+        #step-counter {
+            background: #1c2c52;
+            border: 1px solid #38bdf8;
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: none;
+            text-align: center;
+        }
+        #step-count {
+            font-size: 28px;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+        #step-label {
+            font-size: 11px;
+            color: #9db8e8;
+            margin-top: 2px;
+        }
+
+        /* STATUS */
+        #status {
+            font-size: 11px;
+            color: #9db8e8;
+            text-align: center;
+            padding: 4px 0;
+        }
+
+        /* LOADING DOTS */
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%   { content: '.'; }
+            33%  { content: '..'; }
+            66%  { content: '...'; }
+        }
+
+        /* SAFETY SCORE */
+        #safety-score-box {
+            display: none;
+            background: #1c2c52;
+            border: 1px solid #2d4a8a;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        #safety-score-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        #safety-reasons {
+            list-style: none;
+            font-size: 11px;
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+        #safety-reasons li::before { content: "• "; color: #64748b; }
+        .safety-disclaimer {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        /* OBSTACLE MARKERS */
+        .obstacle-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+    <img id="logo-img" src="{{ url_for('static', filename='logo.png') }}" alt="ACCESSI logo"
+         style="height:32px; width:32px; object-fit:contain; border-radius:6px;"
+         onerror="this.outerHTML='<span style=&quot;font-size:26px&quot;>♿</span>'"/>
+    <div>
+        <h1>ACCESSI</h1>
+        <p>AI-powered accessible navigation for everyone</p>
+    </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div id="main">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+
+        <!-- User Type -->
+        <div>
+            <div class="label">👤 I am a...</div>
+            <select id="user-type" onchange="updateCalibInstructions()">
+                <option value="wheelchair">Wheelchair user</option>
+                <option value="blind">Blind / visually impaired</option>
+                <option value="elderly">Elderly person</option>
+                <option value="disabled">Person with disability</option>
+                <option value="stroller">Parent with stroller</option>
+            </select>
+        </div>
+
+        <!-- Location Controls -->
+        <button class="btn" id="locate-btn" onclick="updateMyLocation()" style="background:#1d4ed8;">
+            📍 Update My Location
+        </button>
+
+        <!-- Pace Calibration -->
+        <button class="btn" id="calibrate-btn" onclick="toggleCalibrationPanel()" style="background:#0ea5e9;">
+            ⚙️ Calibrate My Pace
+        </button>
+        <div id="calibration-panel" style="display:none; background:#1c2c52; border:1px solid #2d4a8a; border-radius:8px; padding:12px; font-size:12px; color:#dbe6ff;">
+
+            <div style="display:flex; gap:6px; margin-bottom:10px;">
+                <button class="btn" id="calib-tab-quick" onclick="setCalibTab('quick')" style="background:#2563eb; font-size:11px; padding:7px;">⚡ Quick (GPS)</button>
+                <button class="btn" id="calib-tab-video" onclick="setCalibTab('video')" style="background:#334155; font-size:11px; padding:7px;">📹 Video</button>
+            </div>
+
+            <!-- Quick GPS calibration -->
+            <div id="calib-quick-section">
+                <div id="calib-instructions" style="margin-bottom:8px; line-height:1.5;"></div>
+                <div id="calib-status" style="margin-bottom:8px; font-weight:700; color:#9db8e8;"></div>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn" id="calib-start-btn" onclick="startCalibration()" style="background:#10b981; font-size:12px; padding:9px;">Start</button>
+                    <button class="btn" id="calib-tap-btn" onclick="tapStep()" style="background:#2563eb; display:none; font-size:12px; padding:9px;">👣 Tap Per Step</button>
+                    <button class="btn" id="calib-stop-btn" onclick="stopCalibration()" style="background:#dc2626; display:none; font-size:12px; padding:9px;">Stop &amp; Save</button>
+                </div>
+            </div>
+
+            <!-- Video calibration (experimental) -->
+            <div id="calib-video-section" style="display:none;">
+                <div style="margin-bottom:8px; line-height:1.5;">
+                    Upload a short video of yourself walking (or rolling) from the side, full body visible. <b>Experimental</b> — accuracy varies with lighting and angle.
+                </div>
+                <input type="number" id="calib-height-input" placeholder="Your height in cm (e.g. 170)"
+                       style="width:100%; padding:8px; margin-bottom:8px; background:#0e1a3a; border:1px solid #2d4a8a; border-radius:6px; color:white; font-size:12px;"/>
+                <input type="file" id="calib-video-input" accept="video/*" capture="user"
+                       style="width:100%; margin-bottom:8px; font-size:11px; color:#9db8e8;"/>
+                <button class="btn" id="calib-video-btn" onclick="calibrateWithVideo()" style="background:#10b981; font-size:12px; padding:9px;">
+                    📹 Analyze Video
+                </button>
+                <div id="calib-video-status" style="margin-top:8px; font-weight:700; color:#9db8e8;"></div>
+            </div>
+        </div>
+
+        <!-- Destination -->
+        <div>
+            <div class="label">🎤 Voice or type your destination</div>
+            <input type="text" id="destination-input"
+                   placeholder="e.g. Berkeley Public Library..."/>
+        </div>
+
+        <!-- Voice Button -->
+        <button class="btn" id="voice-btn" onclick="toggleVoice()">
+            🎤 Tap to Speak
+        </button>
+
+        <!-- Get Route Button -->
+        <button class="btn" id="ask-btn" onclick="askAI()">
+            🤖 Get Accessible Route
+        </button>
+
+        <!-- Step Counter -->
+        <div id="step-counter">
+            <div id="step-count">0</div>
+            <div id="step-label">steps taken</div>
+        </div>
+
+        <!-- AI Response -->
+        <div>
+            <div class="label">🧠 AI Navigation Assistant</div>
+            <div id="response-box">
+                Hi! I'm your ACCESSI assistant. Tell me where you want to go and I'll find the most accessible route for you! 🗺️
+            </div>
+        </div>
+
+        <!-- AI Accessibility Score (estimate) -->
+        <div id="safety-score-box">
+            <div class="label">♿ AI ACCESSIBILITY ESTIMATE</div>
+            <span id="safety-score-badge"></span>
+            <ul id="safety-reasons"></ul>
+            <div class="safety-disclaimer">Estimated from route shape — not measured sidewalk data.</div>
+        </div>
+
+        <!-- Speak / Stop Buttons -->
+        <button class="btn" id="speak-btn" onclick="speakResponse()">
+            Read Directions Aloud
+        </button>
+        <button class="btn" id="stop-btn" onclick="stopSpeaking()">
+            Stop Reading
+        </button>
+
+        <!-- Open in Google Maps -->
+        <button class="btn" id="google-maps-btn" onclick="openInGoogleMaps()" style="display:none; background:#1a73e8;">
+            🗺️ Open in Google Maps
+        </button>
+
+        <!-- Report Obstacle -->
+        <div>
+            <div class="label">⚠️ See something blocking the way?</div>
+            <button class="btn obstacle-btn" onclick="reportObstacle()">
+                Report Obstacle
+            </button>
+        </div>
+
+        <!-- Status -->
+        <div id="status">Ready to navigate ✅</div>
+
+    </div>
+
+    <!-- MAP -->
+    <div id="map"></div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // ─── MAP SETUP ───────────────────────────────────────────────
+    const map = L.map('map').setView([37.8724, -122.2595], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let userLocation   = null;
+    let userMarker     = null;
+    let lastResponse   = '';
+    let stepCount      = 0;
+    let stepInterval   = null;
+    let obstacles      = [];
+    let currentRoute   = null;
+    let currentAudio   = null;
+    let lastDestinationLabel = '';
+    let lastDestinationLat   = null;
+    let lastDestinationLng   = null;
+    let mediaRecorder  = null;
+    let audioChunks    = [];
+    let recordTimeout  = null;
+
+    // Calibration state
+    let calibActive    = false;
+    let calibStartPos  = null;
+    let calibStartTime = null;
+    let calibStepTaps  = 0;
+    let savedStrideM        = parseFloat(localStorage.getItem('accessi_stride_m')) || null;
+    let savedWheelchairMph  = parseFloat(localStorage.getItem('accessi_wheelchair_mph')) || null;
+
+    // ─── GET USER LOCATION ───────────────────────────────────────
+    map.locate({ setView: true, maxZoom: 16 });
+
+    map.on('locationfound', (e) => {
+        userLocation = e.latlng;
+        userMarker = L.marker(e.latlng)
+            .addTo(map)
+            .bindPopup('📍 You are here!')
+            .openPopup();
+        setStatus('📍 Your location found!');
+    });
+
+    map.on('locationerror', () => {
+        setStatus('⚠️ Could not find location. Using default.');
+    });
+
+    // ─── RE-CHECK / FIX MY LOCATION ──────────────────────────────
+    function updateMyLocation() {
+        if (!navigator.geolocation) {
+            setStatus('❌ Geolocation not supported on this browser.');
+            return;
+        }
+        setStatus('📍 Finding your precise location...');
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            userLocation = latlng;
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.marker(latlng).addTo(map)
+                .bindPopup('📍 You are here!')
+                .openPopup();
+            map.setView(latlng, 16);
+            setStatus('✅ Location updated!');
+        }, () => {
+            setStatus('❌ Could not get a precise location. Try again outdoors or with location services on.');
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    }
+
+    // ─── DISTANCE HELPER (for calibration) ───────────────────────
+    function haversineMeters(lat1, lng1, lat2, lng2) {
+        const R = 6371000;
+        const toRad = d => d * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2 +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    // ─── PACE CALIBRATION (walk/roll, then measure) ──────────────
+    function toggleCalibrationPanel() {
+        const panel = document.getElementById('calibration-panel');
+        const isHidden = panel.style.display === 'none' || !panel.style.display;
+        panel.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) updateCalibInstructions();
+    }
+
+    function setCalibTab(tab) {
+        const quickSection = document.getElementById('calib-quick-section');
+        const videoSection = document.getElementById('calib-video-section');
+        const quickTab = document.getElementById('calib-tab-quick');
+        const videoTab = document.getElementById('calib-tab-video');
+
+        if (tab === 'quick') {
+            quickSection.style.display = 'block';
+            videoSection.style.display = 'none';
+            quickTab.style.background = '#2563eb';
+            videoTab.style.background = '#334155';
+        } else {
+            quickSection.style.display = 'none';
+            videoSection.style.display = 'block';
+            quickTab.style.background = '#334155';
+            videoTab.style.background = '#2563eb';
+        }
+    }
+
+    async function calibrateWithVideo() {
+        const fileInput = document.getElementById('calib-video-input');
+        const heightInput = document.getElementById('calib-height-input');
+        const statusEl = document.getElementById('calib-video-status');
+        const userType = document.getElementById('user-type').value;
+
+        if (!fileInput.files.length) {
+            statusEl.textContent = '⚠️ Please choose a video first.';
+            return;
+        }
+        const heightCm = parseFloat(heightInput.value);
+        if (!heightCm || heightCm < 50 || heightCm > 250) {
+            statusEl.textContent = '⚠️ Please enter a valid height in cm.';
+            return;
+        }
+
+        statusEl.textContent = '⏳ Analyzing video... this can take a minute, please wait.';
+
+        const formData = new FormData();
+        formData.append('video', fileInput.files[0]);
+        formData.append('heightCm', heightCm);
+        formData.append('userType', userType);
+
+        try {
+            const res = await fetch('/calibrate-video', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.error) {
+                statusEl.textContent = `⚠️ ${data.error}`;
+                return;
+            }
+
+            if (data.stride_m) {
+                savedStrideM = data.stride_m;
+                localStorage.setItem('accessi_stride_m', data.stride_m.toFixed(3));
+                statusEl.textContent = `✅ Step length: ${data.stride_m.toFixed(2)}m (from ${data.steps_detected} steps detected) — saved!`;
+            } else if (data.wheelchair_mph) {
+                savedWheelchairMph = data.wheelchair_mph;
+                localStorage.setItem('accessi_wheelchair_mph', data.wheelchair_mph.toFixed(2));
+                statusEl.textContent = `✅ Your speed: ${data.wheelchair_mph.toFixed(1)} mph — saved!`;
+            }
+
+        } catch (err) {
+            statusEl.textContent = '❌ Video analysis failed. Try the Quick (GPS) tab instead.';
+        }
+    }
+
+    function isWheelchairProfile(userType) {
+        return userType === 'wheelchair' || userType === 'disabled' || userType === 'stroller';
+    }
+
+    function updateCalibInstructions() {
+        const userType = document.getElementById('user-type').value;
+        const instr = document.getElementById('calib-instructions');
+        if (isWheelchairProfile(userType)) {
+            instr.textContent = 'Roll at your normal pace. Press Start, go a short distance, then press Stop — we\'ll measure your real speed from GPS.';
+        } else {
+            instr.textContent = 'Walk at your normal pace. Press Start, then tap "Step" once per step you take. Press Stop when done.';
+        }
+        document.getElementById('calib-tap-btn').style.display = isWheelchairProfile(userType) ? 'none' : 'flex';
+
+        const saved = isWheelchairProfile(userType)
+            ? (savedWheelchairMph ? `Saved speed: ${savedWheelchairMph.toFixed(1)} mph` : 'Not calibrated yet')
+            : (savedStrideM ? `Saved step length: ${savedStrideM.toFixed(2)}m` : 'Not calibrated yet');
+        document.getElementById('calib-status').textContent = saved;
+    }
+
+    function startCalibration() {
+        if (!navigator.geolocation) {
+            setStatus('❌ Geolocation needed for calibration.');
+            return;
+        }
+        document.getElementById('calib-status').textContent = '⏳ Getting starting position...';
+        navigator.geolocation.getCurrentPosition((pos) => {
+            calibStartPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            calibStartTime = Date.now();
+            calibStepTaps = 0;
+            calibActive = true;
+            document.getElementById('calib-status').textContent = '🟢 Calibrating — go!';
+            document.getElementById('calib-start-btn').style.display = 'none';
+            document.getElementById('calib-stop-btn').style.display = 'flex';
+            const userType = document.getElementById('user-type').value;
+            if (!isWheelchairProfile(userType)) {
+                document.getElementById('calib-tap-btn').style.display = 'flex';
+            }
+        }, () => {
+            document.getElementById('calib-status').textContent = '❌ Could not get a starting position.';
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    }
+
+    function tapStep() {
+        if (!calibActive) return;
+        calibStepTaps++;
+        document.getElementById('calib-status').textContent = `🟢 Steps counted: ${calibStepTaps}`;
+    }
+
+    function stopCalibration() {
+        if (!calibActive) return;
+        document.getElementById('calib-status').textContent = '⏳ Measuring...';
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const endPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            const distanceM = haversineMeters(calibStartPos.lat, calibStartPos.lng, endPos.lat, endPos.lng);
+            const elapsedS = (Date.now() - calibStartTime) / 1000;
+            calibActive = false;
+            document.getElementById('calib-start-btn').style.display = 'flex';
+            document.getElementById('calib-stop-btn').style.display = 'none';
+            document.getElementById('calib-tap-btn').style.display = 'none';
+
+            const userType = document.getElementById('user-type').value;
+
+            if (distanceM < 3) {
+                document.getElementById('calib-status').textContent = '⚠️ Too short to measure — try going a bit further.';
+                return;
+            }
+
+            if (isWheelchairProfile(userType)) {
+                const mph = (distanceM / elapsedS) * 2.23694;
+                savedWheelchairMph = mph;
+                localStorage.setItem('accessi_wheelchair_mph', mph.toFixed(2));
+                document.getElementById('calib-status').textContent = `✅ Your speed: ${mph.toFixed(1)} mph — saved!`;
+            } else {
+                if (calibStepTaps < 3) {
+                    document.getElementById('calib-status').textContent = '⚠️ Not enough steps tapped — try again.';
+                    return;
+                }
+                const strideM = distanceM / calibStepTaps;
+                savedStrideM = strideM;
+                localStorage.setItem('accessi_stride_m', strideM.toFixed(3));
+                document.getElementById('calib-status').textContent = `✅ Your step length: ${strideM.toFixed(2)}m — saved!`;
+            }
+        }, () => {
+            document.getElementById('calib-status').textContent = '❌ Could not finish calibration.';
+            calibActive = false;
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    }
+
+    // ─── VOICE INPUT (Deepgram STT) ────────────────────────────────
+    async function toggleVoice() {
+        const btn = document.getElementById('voice-btn');
+
+        // If already recording, stop early
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setStatus('❌ Microphone not supported in this browser.');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+                ? 'audio/webm'
+                : 'audio/ogg';
+
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                clearTimeout(recordTimeout);
+                stream.getTracks().forEach(track => track.stop());
+                btn.textContent = '🎤 Tap to Speak';
+                btn.classList.remove('listening');
+                setStatus('🧠 Transcribing...');
+
+                const audioBlob = new Blob(audioChunks, { type: mimeType });
+
+                try {
+                    const res = await fetch('/transcribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': mimeType },
+                        body: audioBlob
+                    });
+                    const data = await res.json();
+
+                    if (data.transcript) {
+                        document.getElementById('destination-input').value = data.transcript;
+                        setStatus(`✅ Heard: "${data.transcript}"`);
+                        askAI();
+                    } else {
+                        setStatus('❌ Could not hear you. Please try again.');
+                    }
+                } catch (err) {
+                    setStatus('❌ Transcription failed. Check your connection.');
+                }
+            };
+
+            mediaRecorder.start();
+            btn.textContent = '🔴 Tap to Stop';
+            btn.classList.add('listening');
+            setStatus('🎤 Speak your destination now...');
+
+            // Auto-stop after 6 seconds so it doesn't record forever
+            recordTimeout = setTimeout(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                }
+            }, 6000);
+
+        } catch (err) {
+            setStatus('❌ Microphone access denied.');
+        }
+    }
+
+    // ─── ASK AI FOR ROUTE ────────────────────────────────────────
+    async function askAI() {
+        const destination = document.getElementById('destination-input').value.trim();
+        const userType    = document.getElementById('user-type').value;
+
+        if (!destination) {
+            setStatus('⚠️ Please enter a destination first!');
+            return;
+        }
+
+        if (!userLocation) {
+            setStatus('⚠️ Still finding your location — try again in a moment.');
+            return;
+        }
+
+        const responseBox = document.getElementById('response-box');
+        responseBox.textContent = '';
+        responseBox.classList.add('loading');
+        setStatus('🧭 Finding accessible route...');
+        stopStepCounter();
+
+        // Clear out anything left over from a previous search — stops any
+        // audio still playing, and hides buttons tied to the OLD answer so
+        // they can't be clicked (and speak stale text) while this new
+        // search is still loading.
+        stopSpeaking();
+        lastResponse = '';
+        prefetchedAudioPromise = null;
+        prefetchedAudioText = '';
+        document.getElementById('speak-btn').style.display = 'none';
+        document.getElementById('google-maps-btn').style.display = 'none';
+        document.getElementById('safety-score-box').style.display = 'none';
+
+        try {
+            // Step 1: get the real route + steps from the backend (OpenRouteService)
+            const routeRes = await fetch('/route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    start: { lat: userLocation.lat, lng: userLocation.lng },
+                    destination,
+                    userType
+                })
+            });
+            const routeData = await routeRes.json();
+
+            if (routeData.error) {
+                responseBox.classList.remove('loading');
+                responseBox.textContent = `❌ ${routeData.error}`;
+                setStatus('❌ Could not find that route');
+                return;
+            }
+
+            drawRoute(routeData.route_coords);
+            lastDestinationLabel = routeData.destination_label;
+            lastDestinationLat = routeData.destination_lat;
+            lastDestinationLng = routeData.destination_lng;
+            document.getElementById('google-maps-btn').style.display = 'flex';
+
+            setStatus('🧠 Writing your directions...');
+
+            // Use the user's calibrated wheelchair speed to adjust the time estimate, if they've calibrated one
+            const isWheelchairType = (userType === 'wheelchair' || userType === 'disabled' || userType === 'stroller');
+            let adjustedDurationS = routeData.duration_s;
+            if (isWheelchairType && savedWheelchairMph) {
+                const metersPerSecond = savedWheelchairMph * 0.44704;
+                adjustedDurationS = Math.round(routeData.distance_m / metersPerSecond);
+            }
+
+            // Step 2: get the warm, accessible narration from Claude
+            const askRes = await fetch('/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userType,
+                    destinationLabel: routeData.destination_label,
+                    steps: routeData.steps,
+                    distanceM: routeData.distance_m,
+                    durationS: adjustedDurationS,
+                    strideM: savedStrideM || undefined
+                })
+            });
+            const askData = await askRes.json();
+            lastResponse = askData.response;
+
+            responseBox.classList.remove('loading');
+            responseBox.textContent = lastResponse;
+
+            // Start generating the speech audio right away, in the
+            // background — by the time anyone taps "Read Aloud" (or, for
+            // blind users, immediately below) it's likely already ready.
+            prefetchSpeech(lastResponse);
+
+            document.getElementById('speak-btn').style.display = 'flex';
+            setStatus('✅ Route found! Press 🔊 to hear directions.');
+
+            // Blind users can't necessarily see (or easily find) the "Read
+            // Directions Aloud" button — so for them, start speaking
+            // automatically instead of waiting for a manual tap. The step
+            // counter itself starts inside speakResponse(), right when
+            // audio actually begins, not before.
+            if (userType === 'blind') {
+                speakResponse();
+            }
+
+            // Get the AI-estimated accessibility score for this route
+            fetchSafetyScore(routeData.steps, routeData.distance_m, routeData.duration_s, userType);
+
+        } catch (err) {
+            responseBox.classList.remove('loading');
+            responseBox.textContent = '❌ Error connecting to the server. Please try again.';
+            setStatus('❌ Connection error');
+        }
+    }
+
+    // ─── OPEN IN GOOGLE MAPS ─────────────────────────────────────
+    function openInGoogleMaps() {
+        if (!userLocation || lastDestinationLat === null || lastDestinationLng === null) return;
+        const origin = `${userLocation.lat},${userLocation.lng}`;
+        // Use exact coordinates, not the text label — guarantees Google opens
+        // the SAME place our route was calculated to, not a different match.
+        const destination = `${lastDestinationLat},${lastDestinationLng}`;
+        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+        window.open(url, '_blank');
+    }
+
+    // ─── AI ACCESSIBILITY ESTIMATE ───────────────────────────────
+    async function fetchSafetyScore(steps, distanceM, durationS, userType) {
+        try {
+            const res = await fetch('/safety-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userType,
+                    steps,
+                    distanceM,
+                    durationS
+                })
+            });
+            const data = await res.json();
+            renderSafetyScore(data);
+        } catch (err) {
+            document.getElementById('safety-score-box').style.display = 'none';
+        }
+    }
+
+    function renderSafetyScore(data) {
+        const box = document.getElementById('safety-score-box');
+        if (data.score === null || data.score === undefined) {
+            box.style.display = 'none';
+            return;
+        }
+        box.style.display = 'block';
+
+        const badge = document.getElementById('safety-score-badge');
+        let color = '#10b981'; // green
+        if (data.score < 50) color = '#ef4444';       // red
+        else if (data.score < 80) color = '#f59e0b';  // yellow
+        badge.style.background = color;
+        badge.textContent = `${data.score}% · ${data.label}`;
+
+        const list = document.getElementById('safety-reasons');
+        list.innerHTML = '';
+        (data.reasons || []).forEach(r => {
+            const li = document.createElement('li');
+            li.textContent = r;
+            list.appendChild(li);
+        });
+    }
+
+    // ─── DRAW ROUTE ON MAP ───────────────────────────────────────
+    function drawRoute(coords) {
+        if (currentRoute) map.removeLayer(currentRoute);
+        // GeoJSON coords are [lng, lat] — Leaflet wants [lat, lng]
+        const latlngs = coords.map(c => [c[1], c[0]]);
+        currentRoute = L.polyline(latlngs, { color: '#3b82f6', weight: 5 }).addTo(map);
+        map.fitBounds(currentRoute.getBounds(), { padding: [40, 40] });
+    }
+
+    // ─── TEXT TO SPEECH (Deepgram TTS) ──────────────────────────────
+    let prefetchedAudioPromise = null;  // in-flight/completed fetch for the CURRENT narration
+    let prefetchedAudioText    = '';     // which text that prefetch corresponds to
+
+    function prefetchSpeech(text) {
+        prefetchedAudioText = text;
+        prefetchedAudioPromise = fetch('/speak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        }).then(res => {
+            if (!res.ok) throw new Error('TTS prefetch failed');
+            return res.blob();
+        }).catch(() => null);
+    }
+
+    async function speakResponse() {
+        if (!lastResponse) return;
+
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+
+        document.getElementById('speak-btn').style.display = 'none';
+        document.getElementById('stop-btn').style.display  = 'flex';
+        setStatus('🔊 Generating speech...');
+
+        try {
+            // Reuse the in-flight prefetch if it matches what we're about to
+            // speak — usually means the audio is already ready, or close to it.
+            let audioBlob = null;
+            if (prefetchedAudioPromise && prefetchedAudioText === lastResponse) {
+                audioBlob = await prefetchedAudioPromise;
+            }
+            if (!audioBlob) {
+                const res = await fetch('/speak', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: lastResponse })
+                });
+                if (!res.ok) throw new Error('TTS request failed');
+                audioBlob = await res.blob();
+            }
+
+            const audioUrl = URL.createObjectURL(audioBlob);
+            currentAudio = new Audio(audioUrl);
+
+            currentAudio.onended = () => {
+                document.getElementById('speak-btn').style.display = 'flex';
+                document.getElementById('stop-btn').style.display  = 'none';
+                setStatus('✅ Done reading directions.');
+            };
+
+            // Start the step counter right as audio actually begins — not
+            // earlier, since the user hasn't heard where to go yet before this.
+            const userType = document.getElementById('user-type').value;
+            if (userType === 'blind') startStepCounter();
+
+            await currentAudio.play();
+            setStatus('🔊 Reading directions aloud...');
+
+        } catch (err) {
+            setStatus('❌ Could not generate speech.');
+            document.getElementById('speak-btn').style.display = 'flex';
+            document.getElementById('stop-btn').style.display  = 'none';
+        }
+    }
+
+    function stopSpeaking() {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+        }
+        document.getElementById('speak-btn').style.display = 'flex';
+        document.getElementById('stop-btn').style.display  = 'none';
+        setStatus('⏹️ Stopped speaking.');
+    }
+
+    // ─── STEP COUNTER ────────────────────────────────────────────
+    function startStepCounter() {
+        stepCount = 0;
+        document.getElementById('step-counter').style.display = 'block';
+        document.getElementById('step-count').textContent = '0';
+
+        // Simulate step counting (in a real app: use the DeviceMotion API)
+        if (stepInterval) clearInterval(stepInterval);
+        stepInterval = setInterval(() => {
+            stepCount++;
+            document.getElementById('step-count').textContent = stepCount;
+        }, 800); // ~800ms per step = average walking pace
+    }
+
+    function stopStepCounter() {
+        if (stepInterval) clearInterval(stepInterval);
+        document.getElementById('step-counter').style.display = 'none';
+    }
+
+    // ─── REPORT OBSTACLE ─────────────────────────────────────────
+    async function reportObstacle() {
+        if (!userLocation) {
+            setStatus('❌ Location not found yet! Please wait...');
+            return;
+        }
+
+        const type = prompt(
+            'What obstacle are you reporting?\n\n' +
+            'Examples:\n' +
+            '• Broken elevator\n' +
+            '• Construction blocking ramp\n' +
+            '• Flooded sidewalk\n' +
+            '• Broken pavement\n' +
+            '• Missing curb cut'
+        );
+
+        if (!type) return;
+
+        // Add marker to map
+        const icon = L.divIcon({
+            html: `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">⚠️</div>`,
+            className: '',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        L.marker(userLocation, { icon })
+         .addTo(map)
+         .bindPopup(`<b>⚠️ ${type}</b><br><small>Reported just now</small>`)
+         .openPopup();
+
+        obstacles.push({ location: userLocation, type });
+
+        // Tell AI about it
+        try {
+            const res = await fetch('/report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type,
+                    location: userLocation
+                })
+            });
+            const data = await res.json();
+            setStatus(`✅ Reported! ${data.message}`);
+        } catch {
+            setStatus(`✅ Obstacle reported: ${type}`);
+        }
+    }
+
+    // ─── HELPERS ─────────────────────────────────────────────────
+    function setStatus(msg) {
+        document.getElementById('status').textContent = msg;
+    }
+</script>
+</body>
+</html>

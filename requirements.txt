@@ -1,0 +1,9 @@
+flask
+anthropic
+requests
+python-dotenv
+gunicorn
+flask-cors
+opencv-python-headless
+mediapipe
+numpy
