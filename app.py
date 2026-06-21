@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 
 claude_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-CLAUDE_MODEL = "claude-haiku-4-5-20251001"  # fast + cheap, good fit for short narrations
+CLAUDE_MODEL = "claude-haiku-4-5-20251001" 
 
 ORS_KEY = os.getenv("ORS_API_KEY")
 DEEPGRAM_KEY = os.getenv("DEEPGRAM_API_KEY")
@@ -115,9 +115,7 @@ def geocode_destination(query, focus_lat=None, focus_lng=None):
 
         if focus_lat is not None and focus_lng is not None and len(features) > 1:
             top_confidence = max(f["properties"].get("confidence", 0) for f in features)
-            # Only consider results that are close in quality to the best
-            # text match — never let a low-relevance result win purely on
-            # proximity.
+    
             relevant = [
                 f for f in features
                 if f["properties"].get("confidence", 0) >= max(top_confidence - 0.15, 0.4)
@@ -425,7 +423,7 @@ def calibrate_video():
         hip_positions = []    
 
         frame_idx = 0
-        SAMPLE_EVERY = 2  # process every other frame to keep this reasonably fast
+        SAMPLE_EVERY = 2 
 
         while True:
             ret, frame = cap.read()
@@ -442,11 +440,10 @@ def calibrate_video():
             result = landmarker.detect_for_video(mp_image, timestamp_ms)
 
             if result.pose_landmarks:
-                lm = result.pose_landmarks[0]  # first detected person
+                lm = result.pose_landmarks[0]  
                 h, w = frame.shape[:2]
 
-                # BlazePose 33-point landmark indices:
-                # 0 = nose, 23/24 = left/right hip, 27/28 = left/right ankle
+              
                 nose       = lm[0]
                 left_hip   = lm[23]
                 right_hip  = lm[24]
@@ -462,7 +459,7 @@ def calibrate_video():
                 avg_ankle_y = (ly + ry) / 2
                 height_px = abs(avg_ankle_y - ny)
 
-                if height_px > 10:  # sanity guard against bad detections
+                if height_px > 10: 
                     separations.append(separation_px)
                     heights_px.append(height_px)
                     hip_positions.append((timestamp_ms, hip_x))
@@ -491,7 +488,7 @@ def calibrate_video():
 
             mps = distance_m / elapsed_s
             mph = mps * 2.23694
-            mph = max(0.3, min(8.0, mph))  # sanity clamp to plausible wheelchair speeds
+            mph = max(0.3, min(8.0, mph))  
 
             return jsonify({
                 "wheelchair_mph": round(mph, 2),
@@ -511,7 +508,7 @@ def calibrate_video():
 
             avg_separation_px = sum(peak_separations) / len(peak_separations)
             stride_m = avg_separation_px * meters_per_px
-            stride_m = max(0.35, min(1.2, stride_m))  # sanity clamp to plausible human strides
+            stride_m = max(0.35, min(1.2, stride_m)) 
 
             return jsonify({
                 "stride_m": round(stride_m, 3),
